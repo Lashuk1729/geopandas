@@ -105,7 +105,8 @@ def plot_polygon_collection(ax, geoms, values=None, color=None,
     if values is not None:
         collection.set_array(np.asarray(values))
         collection.set_cmap(cmap)
-        collection.set_clim(vmin, vmax)
+        if not kwargs.get("norm", None):
+            collection.set_clim(vmin, vmax)
 
     ax.add_collection(collection, autolim=True)
     ax.autoscale_view()
@@ -159,7 +160,8 @@ def plot_linestring_collection(ax, geoms, values=None, color=None,
     if values is not None:
         collection.set_array(np.asarray(values))
         collection.set_cmap(cmap)
-        collection.set_clim(vmin, vmax)
+        if not kwargs.get("norm", None):
+            collection.set_clim(vmin, vmax)
 
     ax.add_collection(collection, autolim=True)
     ax.autoscale_view()
@@ -503,7 +505,9 @@ def plot_dataframe(df, column=None, cmap=None, color=None, ax=None, cax=None,
         from matplotlib.colors import Normalize
         from matplotlib import cm
 
-        norm = Normalize(vmin=mn, vmax=mx)
+        norm = style_kwds.get("norm", None)
+        if not norm:
+            norm = Normalize(vmin=mn, vmax=mx)
         n_cmap = cm.ScalarMappable(norm=norm, cmap=cmap)
         if categorical:
             patches = []
