@@ -45,17 +45,5 @@ class TestPlotting(unittest.TestCase):
         df = GeoDataFrame({'geometry': points, 'values': values})
         self.assertEqual(df['values'].min(), self.df['values'].min())
 
-
-    def test_min_max(self):
-        N = 10
-        points = GeoSeries(Point(i, i) for i in range(self.N))
-        values = np.arange(self.N)*10
-        df = GeoDataFrame({'geometry': points, 'values': values})
-        ax2 = df.plot(column = 'values', norm = self.norm, legend = True)
-        actual_color2 = ax2.collections[0].get_facecolor()
-        ax1 = self.df.plot(column = 'values', norm = self.norm, legend = True)
-        actual_color1 = ax1.collections[0].get_facecolor()
-        self.assertEqual(actual_color1[0].all(),actual_color2[0].all())
-
 if __name__ == '__main__':
     unittest.main()
