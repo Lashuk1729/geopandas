@@ -7,10 +7,10 @@ import numpy as np
 import matplotlib.pyplot as plt
 import matplotlib as mpl
 
-from shapely.geometry import Point, MultiPoint
+from shapely.geometry import Point
 
-from geopandas import GeoSeries, GeoDataFrame, plotting, read_file
-from geopandas.datasets import get_path
+from geopandas import GeoSeries, GeoDataFrame, plotting
+from test_plotting import _check_colors
 
 import pytest
 
@@ -21,58 +21,74 @@ def close_figures(request):
 
 class TestCMapPlotting:
     def setup_method(self):
-        self.df = GeoDataFrame(read_file(get_path('naturalearth_lowres')))
-        self.df = self.df[self.df['continent'] != 'Antarctica']
-        self.df = self.df[self.df['continent'] != 'Seven seas (open ocean)']
-
+        self.N = 10
+        self.points = GeoSeries(Point(i, i) for i in range(self.N))
+        values = np.arange(self.N)
+        levels = ['1','1','2','4','5','1','3','4','2','5']
+        self.df = GeoDataFrame({'geometry': self.points, 'values': values, 'levels': levels})
         cmap = mpl.cm.viridis_r
-        self.norm = mpl.colors.BoundaryNorm([4e7, 6e7, 8e7, 1e8, 2e8, 4e8, 1e9, 1.2e9], cmap.N)
+        self.norm = mpl.colors.BoundaryNorm([1,3,6,8], cmap.N)
 
     def test_min_max(self):
-        ax = self.df.plot(column='pop_est')
+        ax = self.df.plot(column='values', norm = self.norm)
         actual_lim = ax.collections[0].get_clim()
-        expected_lim = (self.df['pop_est'].min(), self.df['pop_est'].max())
+        expected_lim = (self.df['values'].min(), self.df['values'].max())
         assert actual_lim == expected_lim
 
-    def test_norm(self):
-        ax = self.df.plot(column='pop_est', norm = self.norm)
-        actual_norm = ax.collections[0].norm(list(self.df['pop_est']))
-        print(actual_norm)
+        ax = self.df.plot(column='values', norm = self.norm, vmin=-10, vmax=20)
+        actual_colors = ax.collections[0].get_facecolors()
+        assert np.any(np.equal(actual_colors[0], actual_colors[1]))
 
-        expected_norm = self.norm(list(self.df['pop_est']))
-        print(expected_norm)
+    def test_vmin_vmax(self):
+        cmap = mpl.cm.Greys
+        ax = self.df.plot(column='values', norm = self.norm, vmin=0, vmax=0)
+        actual_norm = ax.collections[0].norm(list(self.df['values']))
+        actual_color = cmap(actual_norm)
+        np.testing.assert_array_equal(actual_color[0], actual_color[1])
+
+    def test_norm(self):
+        ax = self.df.plot(column='values', norm = self.norm)
+        actual_norm = ax.collections[0].norm(list(self.df['values']))
+
+        expected_norm = self.norm(list(self.df['values']))
         np.testing.assert_array_equal(actual_norm,expected_norm)
 
     def testdf_min_max(self):
-        continent1 = self.df['continent'] == 'Asia'
-        continent2 = self.df['continent'] == 'Oceania'
+        lvl1 = self.df['levels'] == '1'
+        lvl2 = self.df['levels'] == '5'
 
-        ax = self.df.plot(column='pop_est', norm = self.norm)
+        ax = self.df.plot(column='values', legend=True, norm = self.norm)
         actual_lim = ax.collections[0].get_clim()
+        actual_color = ax.get_figure().axes[1].collections[0].get_facecolors()
 
-        ax1 = self.df[continent1 & self.df['pop_est']].plot(column='pop_est', norm = self.norm)
+        ax1 = self.df[lvl1].plot(column='values', legend=True, norm = self.norm)
         actual_lim1 = ax1.collections[0].get_clim()
+        actual_color1 = ax1.get_figure().axes[1].collections[0].get_facecolors()
 
-        ax2 = self.df[continent2 & self.df['pop_est']].plot(column='pop_est', norm = self.norm)
+        ax2 = self.df[lvl2].plot(column='values', legend=True, norm = self.norm)
         actual_lim2 = ax2.collections[0].get_clim()
+        actual_color2 = ax2.get_figure().axes[1].collections[0].get_facecolors()
 
-        assert actual_lim == actual_lim1
-        assert actual_lim == actual_lim2
-        assert actual_lim1 == actual_lim2
+        np.testing.assert_array_equal(actual_color, actual_color1)
+        np.testing.assert_array_equal(actual_color, actual_color2)
+        np.testing.assert_array_equal(actual_color1, actual_color2)
 
-    def testdf_color(self):
-        continent1 = self.df['continent'] == 'Asia'
-        continent2 = self.df['continent'] == 'Oceania'
+    def testdf_norm(self):
+        cmap = mpl.cm.tab20
+        norm = mpl.colors.BoundaryNorm([0, 4, 8, 12], cmap.N)
+        ax = self.df.plot(column='values', cmap = cmap, norm = norm)
+        actual_norm = ax.collections[0].norm(list(self.df['values']))
 
-        ax = self.df.plot(column='pop_est', norm = self.norm)
-        actual_color = ax.collections[0].get_facecolor()
+        expected_norm = norm(list(self.df['values']))
+        np.testing.assert_array_equal(actual_norm, expected_norm)
 
-        ax1 = self.df[continent1 & self.df['pop_est']].plot(column='pop_est', norm = self.norm)
-        actual_color1 = ax1.collections[0].get_facecolor()
+    def test_color(self):
+        cmap = mpl.cm.Greys
+        norm = mpl.colors.BoundaryNorm([0, 4, 8, 12], cmap.N)
+        ax = self.df.plot(column='values', cmap = cmap, norm = norm)
+        actual_norm = ax.collections[0].norm(list(self.df['values']))
+        actual_color = cmap(actual_norm)
 
-        ax2 = self.df[continent2 & self.df['pop_est']].plot(column='pop_est', norm = self.norm)
-        actual_color2 = ax2.collections[0].get_facecolor()
-
-        np.testing.assert_array_equal(actual_color[0], actual_color1[0])
-        np.testing.assert_array_equal(actual_color[0], actual_color2[0])
-        np.testing.assert_array_equal(actual_color1[0], actual_color2[0])
+        expected_norm = norm(list(self.df['values']))
+        expected_color = cmap(expected_norm)
+        np.testing.assert_array_equal(actual_norm, expected_norm)
