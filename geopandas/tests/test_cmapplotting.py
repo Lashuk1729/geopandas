@@ -25,70 +25,102 @@ try:
 except KeyError:
     MPL_DFT_COLOR = matplotlib.rcParams['axes.color_cycle'][0]
 
-class TestPointPlotting:
+class TestCMapPointPlotting:
     def setup_method(self):
         # Intializing the dataframe
         self.N = 10
-        self.points = GeoSeries(Point(i, i, i) for i in range(self.N))
-
-        values = np.arange(self.N)
-        levels = ['1','1','1','1','1','1','2','2','2','2']
-
-        self.df = GeoDataFrame({'geometry': self.points, 'values': values, 'levels': levels})
+        self.points = GeoSeries(Point(i, i) for i in range(self.N))
+        self.values = np.arange(self.N)
+        self.df = GeoDataFrame({'geometry': self.points, 'values': self.values})
 
     def test_customnorm(self):
         # test color without additional parameters
-        ax = self.df.plot(column='values')
-        actual_color = ax.collections[0].get_facecolors()
-        cmap = ax.collections[0].get_cmap()
-        expected_color = cmap(np.arange(self.N) / (self.N - 1))
-        np.testing.assert_array_equal(actual_color, expected_color)
+        from geopandas.plotting import plot_point_collection
+        fig, ax = plt.subplots()
+        coll = plot_point_collection(ax, self.points, self.values)
+        fig.canvas.draw_idle()
 
-        # test color with providing norm
-        norm = mpl.colors.Normalize(vmin = 0, vmax = 12)
-        ax = self.df.plot(column='values', norm = norm)
-        actual_color = ax.collections[0].get_facecolors()
-        cmap = ax.collections[0].get_cmap()
-        expected_color = cmap(norm(list(self.df['values'])))
-        np.testing.assert_array_equal(actual_color, expected_color)
+        cmap = plt.get_cmap()
+        expected_colors = cmap(np.arange(self.N) / (self.N - 1))
+        np.testing.assert_array_equal(coll.get_facecolors(), expected_colors)
+        ax.cla()
 
-        # test color with providing BoundaryNorm
-        cmap = mpl.cm.Greys
-        norm = mpl.colors.Normalize(vmin = 0, vmax = 12)
-        ax = self.df.plot(column='values', norm = norm)
-        actual_color = ax.collections[0].get_facecolors()
-        cmap = ax.collections[0].get_cmap()
-        expected_color = cmap(norm(list(self.df['values'])))
-        np.testing.assert_array_equal(actual_color, expected_color)
-
-    def test_minmax(self):
-        # test colorbar min,max without additional parameters
-        ax = self.df.plot(column='values', legend=True)
-        colorbar_color = ax.get_figure().axes[1].collections[0].get_clim()
-        point_color = ax.collections[0].get_clim()
-        assert colorbar_color == point_color
-
-        # test colorbar min,max with norm
-        cmap = mpl.cm.Greys
-        norm = mpl.colors.Normalize(vmin = 0, vmax = 12)
-        ax = self.df.plot(column='values', legend=True, norm = norm)
-        colorbar_color = ax.get_figure().axes[1].collections[0].get_clim()
-        point_color = ax.collections[0].get_clim()
-        assert colorbar_color == point_color
-
-        # test color with providing BoundaryNorm
+        fig, ax = plt.subplots()
         cmap = mpl.cm.Greys
         norm = mpl.colors.BoundaryNorm([1,3,6,8], cmap.N)
-        ax = self.df.plot(column='values', legend=True, norm = norm)
-        colorbar_color = ax.get_figure().axes[1].collections[0].get_clim()
-        point_color = ax.collections[0].get_clim()
-        assert colorbar_color == point_color
+        coll = plot_point_collection(ax, self.points, self.values, norm = norm)
+        fig.canvas.draw_idle()
+
+        cmap = plt.get_cmap()
+        expected_colors = cmap(norm(list(self.df['values'])))
+        np.testing.assert_array_equal(coll.get_facecolors(), expected_colors)
+        ax.cla()
+
+    def test_minmax(self):
+        # test min-max without additional parameters
+        from geopandas.plotting import plot_point_collection
+        fig, ax = plt.subplots()
+        coll = plot_point_collection(ax, self.points, self.values)
+        fig.canvas.draw_idle()
+        actual_lim = coll.get_clim()
+        assert actual_lim == (0,9)
+        ax.cla()
+
+        fig, ax = plt.subplots()
+        cmap = mpl.cm.Greys
+        norm = mpl.colors.BoundaryNorm([1,3,6,8], cmap.N)
+        coll = plot_point_collection(ax, self.points, self.values, norm = norm)
+        fig.canvas.draw_idle()
+        actual_lim = coll.get_clim()
+        assert actual_lim == (1,8)
+        ax.cla()
+
+    def test_subset_customnorm(self):
+        from geopandas.plotting import plot_point_collection
+        fig, ax = plt.subplots()
+
+        cmap = mpl.cm.Greys
+        norm = mpl.colors.BoundaryNorm([1,2,4], cmap.N)
+        coll = plot_point_collection(ax, self.points[0:3], self.values[0:3], norm = norm)
+        fig.canvas.draw_idle()
+
+        cmap = plt.get_cmap()
+        expected_color = cmap(np.arange(self.N) / (self.N - 1))
+
+        np.testing.assert_array_equal(coll.get_facecolors()[0], expected_color[0])
+        np.testing.assert_array_equal(coll.get_facecolors()[-1], expected_color[-1])
+
+        ax.cla()
+
+    def test_subset_minmax(self):
+        from geopandas.plotting import plot_point_collection
+        fig, ax = plt.subplots()
+
+        cmap = mpl.cm.Greys
+        norm = mpl.colors.BoundaryNorm([1,3,6,8], cmap.N)
+        coll = plot_point_collection(ax, self.points, self.values, norm = norm)
+        fig.canvas.draw_idle()
+
+        actual_lim = coll.get_clim()
+        assert actual_lim == (1,8)
+        ax.cla()
+
+        fig, ax = plt.subplots()
+
+        cmap = mpl.cm.Greys
+        norm = mpl.colors.BoundaryNorm([1,3,6,8], cmap.N)
+        coll = plot_point_collection(ax, self.points[0:3], self.values[0:3], norm = norm)
+        fig.canvas.draw_idle()
+
+        actual_lim1 = coll.get_clim()
+        assert actual_lim1 == actual_lim
+        ax.cla()
 
 class TestCmapPolygonPlotting:
     def setup_method(self):
         # Intializing the dataframe
         self.N = 10
-        self.points = GeoSeries(Point(i, i, i) for i in range(self.N)).buffer(0.5)
+        self.points = GeoSeries(Point(i, i) for i in range(self.N)).buffer(0.5)
 
         values = np.arange(self.N)
         levels = ['1','1','2','4','5','1','5','4','3','2']
@@ -128,11 +160,11 @@ class TestCmapPolygonPlotting:
         assert colorbar_color == point_color
 
         # test colorbar min,max with norm
-        cmap = mpl.cm.Greys
         norm = mpl.colors.Normalize(vmin = 0, vmax = 12)
         ax = self.df.plot(column='values', legend=True, norm = norm)
         colorbar_color = ax.get_figure().axes[1].collections[0].get_clim()
         point_color = ax.collections[0].get_clim()
+        assert point_color == (0.0, 12.0)
         assert colorbar_color == point_color
 
         # test color with providing BoundaryNorm
@@ -141,6 +173,7 @@ class TestCmapPolygonPlotting:
         ax = self.df.plot(column='values', legend=True, norm = norm)
         colorbar_color = ax.get_figure().axes[1].collections[0].get_clim()
         point_color = ax.collections[0].get_clim()
+        assert point_color == (1,8)
         assert colorbar_color == point_color
 
     def test_subsets_nonorm(self):
@@ -196,7 +229,6 @@ class TestCMapLinestringPlotting:
     def setup_method(self):
         self.N = 10
         self.values = np.arange(self.N)
-        levels = ['1','1','1','1','1','1','2','2','2','2']
         self.lines = GeoSeries([LineString([(0, i), (4, i + 0.5), (9, i)]) for i in range(self.N)])
         self.df = GeoDataFrame({'geometry': self.lines, 'values': self.values, 'levels': levels})
 
@@ -225,7 +257,6 @@ class TestCMapLinestringPlotting:
         from geopandas.plotting import plot_linestring_collection
         fig, ax = plt.subplots()
 
-        lvl1 = self.df['levels'] == '1'
         cmap = mpl.cm.Greys
         norm = mpl.colors.BoundaryNorm([1,2,4], cmap.N)
         coll = plot_linestring_collection(ax, self.lines[0:3], self.values[0:3], norm = norm)
